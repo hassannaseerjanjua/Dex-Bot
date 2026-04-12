@@ -1,0 +1,25 @@
+{
+  "name": "dex-bot",
+  "version": "1.0.0",
+  "description": "This is a bot",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hassannaseerjanjua/Dex-Bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hassannaseerjanjua/Dex-Bot/issues"
+  },
+  "homepage": "https://github.com/hassannaseerjanjua/Dex-Bot#readme",
+  "dependencies": {
+    "electron": "^41.2.0"
+  }
+}
