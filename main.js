@@ -4,8 +4,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 300,
     height: 400,
-    frame: false, // no border (like widget)
-    alwaysOnTop: true, // stays above apps
+    frame: false,
+    alwaysOnTop: true,
     transparent: true,
     webPreferences: {
       nodeIntegration: true,
@@ -13,6 +13,9 @@ function createWindow() {
   });
 
   win.loadFile("index.html");
+  // win.loadURL(
+  //   "https://giftee.global/?gifttoken=gl_IXg8eGBpamxsa3Z4OXhgY2p2eCl4YGsn",
+  // );
 }
 
 app.whenReady().then(createWindow);

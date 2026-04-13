@@ -11,11 +11,23 @@
       .bot {
         padding: 15px;
       }
+      .header {
+        -webkit-app-region: drag;
+        width: 100%;
+        height: 30px;
+        background: white;
+        cursor: move;
+      }
+      input,
+      button {
+        -webkit-app-region: no-drag;
+      }
     </style>
   </head>
   <body>
+    <header class="header"></header>
     <div class="bot">
-      <h3>🤖 Desk Bot</h3>
+      <h3>🤖 Dex Bot</h3>
       <p id="time"></p>
       <input id="input" placeholder="Say something..." />
       <p id="response"></p>
