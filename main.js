@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -9,6 +9,7 @@ function createWindow() {
     transparent: true,
     webPreferences: {
       nodeIntegration: true,
+      contextIsolation: false,
     },
   });
 
@@ -16,6 +17,10 @@ function createWindow() {
   // win.loadURL(
   //   "https://giftee.global/?gifttoken=gl_IXg8eGBpamxsa3Z4OXhgY2p2eCl4YGsn",
   // );
+
+  ipcMain.on("app-close", () => {
+    app.quit();
+  });
 }
 
 app.whenReady().then(createWindow);

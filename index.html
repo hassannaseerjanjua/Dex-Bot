@@ -4,34 +4,51 @@
     <style>
       body {
         margin: 0;
+        padding: 0;
         background: rgba(0, 0, 0, 0.6);
         color: white;
         font-family: Arial;
+        border-radius: 10px;
       }
       .bot {
-        padding: 15px;
+        padding-left: 15px;
+        padding-right: 15px;
       }
       .header {
         -webkit-app-region: drag;
-        width: 100%;
         height: 30px;
-        background: white;
+        background: rgb(135, 216, 243);
         cursor: move;
+        color: #000;
+        position: relative;
+        padding: 2px;
+      }
+      .header h3 {
+        margin: 0;
+        line-height: 30px;
       }
       input,
       button {
         -webkit-app-region: no-drag;
       }
+      #closeBtn {
+        -webkit-app-region: no-drag;
+        background: transparent;
+        border: none;
+        position: absolute;
+        top: 1px;
+        right: 0;
+        cursor: pointer;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
-    <header class="header"></header>
-    <div class="bot">
+    <header class="header">
       <h3>🤖 Dex Bot</h3>
-      <p id="time"></p>
-      <input id="input" placeholder="Say something..." />
-      <p id="response"></p>
-    </div>
+      <button id="closeBtn">❌</button>
+    </header>
+    <div class="bot"></div>
 
     <script src="renderer.js"></script>
   </body>
