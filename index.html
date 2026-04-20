@@ -2,44 +2,185 @@
 <html>
   <head>
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         padding: 0;
         color: white;
-        font-family: Arial;
-        border-radius: 10px;
-      }
-      .bot {
+        font-family: "Inter", Arial, sans-serif;
+        border-radius: 12px;
+        overflow: hidden;
+        background: linear-gradient(160deg, #0f0f1a 0%, #111827 100%);
+        height: 540px;
         display: flex;
-        justify-content: center;
-        align-items: center;
+        flex-direction: column;
       }
+
+      /* ── Header ── */
       .header {
         -webkit-app-region: drag;
-        height: 30px;
-        background: rgb(135, 216, 243);
+        height: 36px;
+        background: linear-gradient(90deg, #5ee6ff22, #a78bfa22);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #5ee6ff33;
         cursor: move;
-        color: #000;
+        color: #c8f0ff;
         position: relative;
-        padding: 2px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        flex-shrink: 0;
       }
       .header h3 {
         margin: 0;
-        line-height: 30px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
       }
+
       input,
       button {
         -webkit-app-region: no-drag;
       }
+
       #closeBtn {
         -webkit-app-region: no-drag;
         background: transparent;
         border: none;
         position: absolute;
-        top: 1px;
-        right: 0;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      #closeBtn:hover {
+        opacity: 1;
+      }
+
+      /* ── Bot SVG area ── */
+      .bot {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 4px 0 0;
+      }
+
+      /* ── Chat panel ── */
+      .chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 0 10px 10px;
+        gap: 8px;
+        min-height: 0;
+      }
+
+      #chatLog {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px 4px;
+        scrollbar-width: thin;
+        scrollbar-color: #5ee6ff44 transparent;
+      }
+      #chatLog::-webkit-scrollbar {
+        width: 4px;
+      }
+      #chatLog::-webkit-scrollbar-thumb {
+        background: #5ee6ff44;
+        border-radius: 4px;
+      }
+
+      .msg {
+        max-width: 90%;
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+        animation: fadeUp 0.18s ease;
+      }
+      .msg.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #5ee6ff33, #a78bfa33);
+        border: 1px solid #5ee6ff44;
+        color: #e0f7ff;
+      }
+      .msg.bot {
+        align-self: flex-start;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #ffffff15;
+        color: #c8f0ff;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Input row ── */
+      .input-row {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      #msgInput {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid #5ee6ff44;
+        border-radius: 8px;
+        color: #e8f9ff;
+        font-family: inherit;
+        font-size: 12px;
+        padding: 7px 10px;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      #msgInput::placeholder {
+        color: #5ee6ff66;
+      }
+      #msgInput:focus {
+        border-color: #5ee6ff99;
+        box-shadow: 0 0 0 2px #5ee6ff22;
+      }
+
+      #sendBtn {
+        background: linear-gradient(135deg, #5ee6ff, #a78bfa);
+        border: none;
+        border-radius: 8px;
+        color: #0f0f1a;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 0 12px;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          transform 0.15s;
+      }
+      #sendBtn:hover {
+        opacity: 0.85;
+      }
+      #sendBtn:active {
+        transform: scale(0.94);
       }
     </style>
   </head>
@@ -151,6 +292,20 @@
         <!-- Neck Accent -->
         <rect x="95" y="115" width="30" height="18" rx="8" fill="#c9f7f5" />
       </svg>
+    </div>
+
+    <!-- Chat panel -->
+    <div class="chat-panel">
+      <div id="chatLog"></div>
+      <div class="input-row">
+        <input
+          id="msgInput"
+          type="text"
+          placeholder="Type a message…"
+          autocomplete="off"
+        />
+        <button id="sendBtn">➤</button>
+      </div>
     </div>
 
     <script src="renderer.js"></script>

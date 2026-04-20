@@ -20,6 +20,9 @@
   },
   "homepage": "https://github.com/hassannaseerjanjua/Dex-Bot#readme",
   "dependencies": {
-    "electron": "^41.2.0"
+    "@elevenlabs/elevenlabs-js": "^2.43.0",
+    "dotenv": "^17.4.2",
+    "electron": "^41.2.0",
+    "ws": "^8.20.0"
   }
 }
