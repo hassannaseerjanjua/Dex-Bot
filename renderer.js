@@ -11,6 +11,7 @@ const socket = new WebSocket("ws://localhost:3000");
 const chatLog = document.getElementById("chatLog");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
+const micBtn = document.getElementById("micBtn");
 
 let botBubble = null; // the current streaming bot bubble
 
@@ -53,6 +54,16 @@ msgInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
+micBtn.addEventListener("click", () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    stopRecording();
+    micBtn.textContent = "🎤";
+  } else {
+    startRecording();
+    micBtn.textContent = "🔴";
+  }
+});
+
 // ── ElevenLabs TTS playback ───────────────────────────────────
 const audioCtx = new AudioContext();
 
@@ -61,7 +72,10 @@ ipcRenderer.on("tts-audio", async (_event, buffer) => {
     // buffer arrives as a Node Buffer (Uint8Array-like); decode as MP3
     const audioBuffer = await audioCtx.decodeAudioData(
       // Convert Node Buffer → ArrayBuffer
-      buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength,
+      ),
     );
 
     const source = audioCtx.createBufferSource();
@@ -70,5 +84,45 @@ ipcRenderer.on("tts-audio", async (_event, buffer) => {
     source.start(0);
   } catch (err) {
     console.error("TTS playback error:", err);
+  }
+});
+
+let mediaRecorder;
+let audioChunks = [];
+
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  mediaRecorder = new MediaRecorder(stream);
+
+  mediaRecorder.ondataavailable = (event) => {
+    audioChunks.push(event.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+    audioChunks = []; // Reset chunks for next recording
+    sendToMain(audioBlob);
+  };
+
+  mediaRecorder.start();
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+}
+
+function sendToMain(blob) {
+  blob.arrayBuffer().then((arrayBuffer) => {
+    // Send as Uint8Array (compatible with IPC and Buffer.from)
+    ipcRenderer.send("audio-data", new Uint8Array(arrayBuffer));
+  });
+}
+
+// Listen for transcription result from main
+ipcRenderer.on("transcription-result", (_event, text) => {
+  if (text) {
+    msgInput.value = text;
+    sendMessage(); // Auto-send the transcribed text
   }
 });
