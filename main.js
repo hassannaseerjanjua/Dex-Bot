@@ -85,6 +85,7 @@ function createWindow() {
     height: 540,
     icon: path.join(__dirname, "/assets/dex.ico"),
     frame: false,
+    show: false,
     alwaysOnTop: true,
     transparent: true,
     webPreferences: {
@@ -95,6 +96,7 @@ function createWindow() {
 
   mainWindow.loadFile("index.html");
   mainWindow.on("closed", () => (mainWindow = null));
+  // mainWindow.show();
 }
 
 ipcMain.on("app-close", () => {
@@ -102,6 +104,9 @@ ipcMain.on("app-close", () => {
 });
 
 app.whenReady().then(() => {
+  app.setLoginItemSettings({
+    openAtLogin: true,
+  });
   startWebSocketServer();
   createWindow();
 });
