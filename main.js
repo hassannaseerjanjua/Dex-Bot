@@ -2,6 +2,7 @@ require("dotenv").config();
 const { app, BrowserWindow, ipcMain } = require("electron");
 const WebSocket = require("ws");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
+const path = require("path");
 
 // ── ElevenLabs client ─────────────────────────────────────────
 const elevenLabs = new ElevenLabsClient({
@@ -82,6 +83,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 320,
     height: 540,
+    icon: path.join(__dirname, "/assets/dex.ico"),
     frame: false,
     alwaysOnTop: true,
     transparent: true,
