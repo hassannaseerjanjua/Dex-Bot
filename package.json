@@ -21,6 +21,8 @@
   "homepage": "https://github.com/hassannaseerjanjua/Dex-Bot#readme",
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.43.0",
+    "@google/genai": "^1.50.1",
+    "@openrouter/sdk": "^0.12.19",
     "axios": "^1.15.1",
     "dotenv": "^17.4.2",
     "electron": "^41.2.0",

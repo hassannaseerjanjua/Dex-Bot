@@ -66,25 +66,41 @@ micBtn.addEventListener("click", () => {
 
 // ── ElevenLabs TTS playback ───────────────────────────────────
 const audioCtx = new AudioContext();
+let audioQueue = [];
+let isPlaying = false;
 
-ipcRenderer.on("tts-audio", async (_event, buffer) => {
+async function playNextInQueue() {
+  if (audioQueue.length === 0 || isPlaying) return;
+
+  isPlaying = true;
+  const buffer = audioQueue.shift();
+
   try {
-    // buffer arrives as a Node Buffer (Uint8Array-like); decode as MP3
-    const audioBuffer = await audioCtx.decodeAudioData(
-      // Convert Node Buffer → ArrayBuffer
-      buffer.buffer.slice(
-        buffer.byteOffset,
-        buffer.byteOffset + buffer.byteLength,
-      ),
-    );
-
+    const audioBuffer = await audioCtx.decodeAudioData(buffer);
     const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(audioCtx.destination);
+    source.onended = () => {
+      isPlaying = false;
+      playNextInQueue();
+    };
     source.start(0);
   } catch (err) {
     console.error("TTS playback error:", err);
+    isPlaying = false;
+    playNextInQueue();
   }
+}
+
+ipcRenderer.on("tts-audio", async (_event, buffer) => {
+  // Convert Node Buffer → ArrayBuffer
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+  
+  audioQueue.push(arrayBuffer);
+  playNextInQueue();
 });
 
 let mediaRecorder;

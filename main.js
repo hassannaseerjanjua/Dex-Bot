@@ -3,6 +3,10 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const WebSocket = require("ws");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
 const path = require("path");
+const { OpenRouter } = require("@openrouter/sdk");
+
+// The client gets the API key from the environment variable `GEMINI_API_KEY`.
+const ai = new OpenRouter({ apiKey: process.env.OPEN_ROUTER_API_KEY });
 
 // ── ElevenLabs client ─────────────────────────────────────────
 const elevenLabs = new ElevenLabsClient({
@@ -17,18 +21,10 @@ const VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // 
  */
 async function speakWithElevenLabs(win, text) {
   try {
-    const { data: audioStream, rawResponse } = await elevenLabs.textToSpeech
-      .convert(VOICE_ID, {
-        text,
-        modelId: "eleven_v3",
-      })
-      .withRawResponse();
-
-    const charCost = rawResponse.headers.get("x-character-count");
-    const requestId = rawResponse.headers.get("request-id");
-    console.log(
-      `[ElevenLabs] request-id: ${requestId} | chars used: ${charCost}`,
-    );
+    const audioStream = await elevenLabs.textToSpeech.convert(VOICE_ID, {
+      text,
+      modelId: "eleven_turbo_v2_5", // Much faster for real-time
+    });
 
     // Collect stream chunks into a single Buffer
     const chunks = [];
@@ -68,21 +64,54 @@ function startWebSocketServer() {
 
     ws.on("message", async (message) => {
       const text = message.toString();
-      // 🔥 Simulated AI response (replace with real AI later)
-      const reply = text;
+      const prompt = `
+You are a desktop assistant.
+- Be short
+- Help with tasks
+- Speak like a human
+- Your name is dex
+User: ${text}
+`;
+      try {
+        // Use standard completions.create for best streaming support
+        const stream = await ai.chat.send({
+          chatRequest: {
+            model: "openai/gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            stream: true,
+          },
+        });
 
-      // Kick off TTS concurrently with text streaming
-      const ttsPromise = mainWindow
-        ? speakWithElevenLabs(mainWindow, reply)
-        : Promise.resolve();
+        let sentenceBuffer = "";
 
-      // Stream reply character-by-character to the renderer
-      for (let char of reply) {
-        ws.send(char);
-        await new Promise((r) => setTimeout(r, 20));
+        for await (const chunk of stream) {
+          const chunkText = chunk.choices[0]?.delta?.content || "";
+          if (!chunkText) continue;
+
+          sentenceBuffer += chunkText;
+
+          // Stream the text chunk to the UI immediately
+          ws.send(chunkText);
+
+          // If we find a sentence ending, kick off TTS for that sentence
+          if (
+            /[.!?\n]/.test(sentenceBuffer) &&
+            sentenceBuffer.trim().length > 15
+          ) {
+            if (mainWindow) {
+              speakWithElevenLabs(mainWindow, sentenceBuffer.trim());
+            }
+            sentenceBuffer = ""; // Reset buffer for next sentence
+          }
+        }
+
+        // Speak any remaining text in the buffer
+        if (sentenceBuffer.trim().length > 0 && mainWindow) {
+          speakWithElevenLabs(mainWindow, sentenceBuffer.trim());
+        }
+      } catch (err) {
+        console.error("Streaming error:", err);
       }
-
-      await ttsPromise;
     });
 
     ws.on("close", () => console.log("Client disconnected"));
@@ -143,7 +172,7 @@ ipcMain.on("audio-data", async (event, data) => {
     );
 
     console.log("Transcription:", response.data);
-    
+
     // Send transcription back to renderer
     const text = response.data.text || response.data.transcription;
     if (text && mainWindow && !mainWindow.isDestroyed()) {
@@ -151,7 +180,10 @@ ipcMain.on("audio-data", async (event, data) => {
     }
   } catch (err) {
     if (err.response && err.response.data) {
-      console.error("STT Error Detail:", JSON.stringify(err.response.data, null, 2));
+      console.error(
+        "STT Error Detail:",
+        JSON.stringify(err.response.data, null, 2),
+      );
     } else {
       console.error("STT Error:", err.message);
     }
