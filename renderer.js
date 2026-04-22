@@ -5,62 +5,42 @@ document.getElementById("closeBtn").addEventListener("click", () => {
   ipcRenderer.send("app-close");
 });
 
+// ── Elements ──────────────────────────────────────────────────
+const micBtn = document.getElementById("micBtn");
+const statusText = document.getElementById("statusText");
+const botElement = document.querySelector(".bot");
+
 // ── WebSocket client ──────────────────────────────────────────
 const socket = new WebSocket("ws://localhost:3000");
 
-const chatLog = document.getElementById("chatLog");
-const msgInput = document.getElementById("msgInput");
-const sendBtn = document.getElementById("sendBtn");
-const micBtn = document.getElementById("micBtn");
-
-let botBubble = null; // the current streaming bot bubble
-
-// Append a message bubble to the chat log
-function appendBubble(type, text = "") {
-  const div = document.createElement("div");
-  div.classList.add("msg", type);
-  div.textContent = text;
-  chatLog.appendChild(div);
-  chatLog.scrollTop = chatLog.scrollHeight;
-  return div;
-}
-
-// Stream each incoming character into the active bot bubble
-socket.onmessage = (event) => {
-  if (!botBubble) {
-    botBubble = appendBubble("bot");
-  }
-  botBubble.textContent += event.data;
-  chatLog.scrollTop = chatLog.scrollHeight;
+socket.onopen = () => {
+  console.log("Connected to WebSocket server");
+  statusText.textContent = "Ready to help";
+};
+socket.onerror = (err) => {
+  console.error("WebSocket error:", err);
+  statusText.textContent = "Connection error";
 };
 
-socket.onopen = () => console.log("Connected to WebSocket server");
-socket.onerror = (err) => console.error("WebSocket error:", err);
-
-// Send a message
-function sendMessage() {
-  const text = msgInput.value.trim();
+// Send a message via WebSocket
+function sendMessage(text) {
   if (!text || socket.readyState !== WebSocket.OPEN) return;
-
-  appendBubble("user", text); // user bubble
-  botBubble = null; // reset so next onmessage creates a fresh bot bubble
-
   socket.send(text);
-  msgInput.value = "";
+  statusText.textContent = "Thinking...";
 }
 
-sendBtn.addEventListener("click", sendMessage);
-msgInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendMessage();
-});
-
+// ── Microphone logic ──────────────────────────────────────────
 micBtn.addEventListener("click", () => {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     stopRecording();
+    micBtn.classList.remove("recording");
     micBtn.textContent = "🎤";
+    statusText.textContent = "Processing...";
   } else {
     startRecording();
+    micBtn.classList.add("recording");
     micBtn.textContent = "🔴";
+    statusText.textContent = "Listening...";
   }
 });
 
@@ -70,9 +50,20 @@ let audioQueue = [];
 let isPlaying = false;
 
 async function playNextInQueue() {
-  if (audioQueue.length === 0 || isPlaying) return;
+  if (audioQueue.length === 0) {
+    if (!isPlaying) {
+      botElement.classList.remove("speaking");
+      statusText.textContent = "Ready to help";
+    }
+    return;
+  }
+  
+  if (isPlaying) return;
 
   isPlaying = true;
+  botElement.classList.add("speaking");
+  statusText.textContent = "Speaking...";
+  
   const buffer = audioQueue.shift();
 
   try {
@@ -107,25 +98,29 @@ let mediaRecorder;
 let audioChunks = [];
 
 async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
 
-  mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
 
-  mediaRecorder.ondataavailable = (event) => {
-    audioChunks.push(event.data);
-  };
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      audioChunks = []; // Reset chunks for next recording
+      sendToMain(audioBlob);
+    };
 
-  mediaRecorder.onstop = async () => {
-    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-    audioChunks = []; // Reset chunks for next recording
-    sendToMain(audioBlob);
-  };
-
-  mediaRecorder.start();
+    mediaRecorder.start();
+  } catch (err) {
+    console.error("Recording error:", err);
+    statusText.textContent = "Mic error";
+  }
 }
 
 function stopRecording() {
-  mediaRecorder.stop();
+  if (mediaRecorder) mediaRecorder.stop();
 }
 
 function sendToMain(blob) {
@@ -138,7 +133,12 @@ function sendToMain(blob) {
 // Listen for transcription result from main
 ipcRenderer.on("transcription-result", (_event, text) => {
   if (text) {
-    msgInput.value = text;
-    sendMessage(); // Auto-send the transcribed text
+    console.log("Transcribed:", text);
+    sendMessage(text); // Auto-send the transcribed text
+  } else {
+    statusText.textContent = "Didn't catch that";
+    setTimeout(() => {
+        if (!isPlaying) statusText.textContent = "Ready to help";
+    }, 2000);
   }
 });

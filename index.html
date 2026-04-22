@@ -74,113 +74,74 @@
         padding: 4px 0 0;
       }
 
-      /* ── Chat panel ── */
-      .chat-panel {
+      /* ── Voice interface ── */
+      .voice-container {
         flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 0 10px 10px;
-        gap: 8px;
-        min-height: 0;
+        align-items: center;
+        justify-content: center;
+        padding-bottom: 30px;
+        gap: 20px;
       }
 
-      #chatLog {
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 6px 4px;
-        scrollbar-width: thin;
-        scrollbar-color: #5ee6ff44 transparent;
-      }
-      #chatLog::-webkit-scrollbar {
-        width: 4px;
-      }
-      #chatLog::-webkit-scrollbar-thumb {
-        background: #5ee6ff44;
-        border-radius: 4px;
-      }
-
-      .msg {
-        max-width: 90%;
-        padding: 6px 10px;
-        border-radius: 10px;
-        font-size: 12px;
-        line-height: 1.5;
-        animation: fadeUp 0.18s ease;
-      }
-      .msg.user {
-        align-self: flex-end;
-        background: linear-gradient(135deg, #5ee6ff33, #a78bfa33);
-        border: 1px solid #5ee6ff44;
-        color: #e0f7ff;
-      }
-      .msg.bot {
-        align-self: flex-start;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid #ffffff15;
-        color: #c8f0ff;
-      }
-
-      @keyframes fadeUp {
-        from {
-          opacity: 0;
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      /* ── Input row ── */
-      .input-row {
-        display: flex;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-
-      #msgInput {
-        flex: 1;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid #5ee6ff44;
-        border-radius: 8px;
-        color: #e8f9ff;
-        font-family: inherit;
-        font-size: 12px;
-        padding: 7px 10px;
-        outline: none;
-        transition:
-          border-color 0.2s,
-          box-shadow 0.2s;
-      }
-      #msgInput::placeholder {
-        color: #5ee6ff66;
-      }
-      #msgInput:focus {
-        border-color: #5ee6ff99;
-        box-shadow: 0 0 0 2px #5ee6ff22;
-      }
-
-      #sendBtn {
+      #micBtn {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
         background: linear-gradient(135deg, #5ee6ff, #a78bfa);
         border: none;
-        border-radius: 8px;
-        color: #0f0f1a;
-        font-size: 14px;
-        font-weight: 700;
-        padding: 0 12px;
         cursor: pointer;
-        transition:
-          opacity 0.2s,
-          transform 0.15s;
+        font-size: 28px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 8px 32px rgba(94, 230, 255, 0.3);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        color: #0f0f1a;
+        -webkit-app-region: no-drag;
+        padding: 0;
       }
-      #sendBtn:hover {
-        opacity: 0.85;
+
+      #micBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 12px 40px rgba(94, 230, 255, 0.5);
       }
-      #sendBtn:active {
-        transform: scale(0.94);
+
+      #micBtn:active {
+        transform: scale(0.92);
+      }
+
+      #micBtn.recording {
+        background: #ff4b4b;
+        box-shadow: 0 0 30px rgba(255, 75, 75, 0.6);
+        animation: pulseRecord 1.5s infinite;
+      }
+
+      @keyframes pulseRecord {
+        0% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }
+        70% { box-shadow: 0 0 0 20px rgba(255, 75, 75, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+      }
+
+      #statusText {
+        font-size: 14px;
+        color: #5ee6ff;
+        opacity: 0.8;
+        font-weight: 500;
+        height: 20px;
+        text-align: center;
+        transition: opacity 0.3s;
+      }
+
+      /* ── Bot Animation ── */
+      .bot.speaking svg {
+        animation: speakingGlow 2s infinite ease-in-out;
+      }
+
+      @keyframes speakingGlow {
+        0%, 100% { filter: drop-shadow(0 0 5px rgba(94, 230, 255, 0.2)); }
+        50% { filter: drop-shadow(0 0 15px rgba(94, 230, 255, 0.6)); }
       }
     </style>
   </head>
@@ -294,19 +255,9 @@
       </svg>
     </div>
 
-    <!-- Chat panel -->
-    <div class="chat-panel">
-      <div id="chatLog"></div>
-      <div class="input-row">
-        <input
-          id="msgInput"
-          type="text"
-          placeholder="Type a message…"
-          autocomplete="off"
-        />
-        <button id="micBtn">🎤</button>
-        <button id="sendBtn">➤</button>
-      </div>
+    <div class="voice-container">
+      <div id="statusText">Ready to help</div>
+      <button id="micBtn" title="Hold to speak">🎤</button>
     </div>
 
     <script src="renderer.js"></script>
