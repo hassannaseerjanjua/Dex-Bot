@@ -57,13 +57,13 @@ async function playNextInQueue() {
     }
     return;
   }
-  
+
   if (isPlaying) return;
 
   isPlaying = true;
   botElement.classList.add("speaking");
   statusText.textContent = "Speaking...";
-  
+
   const buffer = audioQueue.shift();
 
   try {
@@ -89,7 +89,7 @@ ipcRenderer.on("tts-audio", async (_event, buffer) => {
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
   );
-  
+
   audioQueue.push(arrayBuffer);
   playNextInQueue();
 });
@@ -110,27 +110,38 @@ async function startRecording() {
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    
+
     let lastSoundTime = Date.now();
-    const SILENCE_THRESHOLD = 20; // Volume threshold (0-255)
-    const SILENCE_DURATION = 2000; // Stop after 2 seconds of silence
+    const SILENCE_THRESHOLD = 5; // Start with 5, increase if it doesn't stop
+    const SILENCE_DURATION = 1500; // 1.5 seconds of silence
 
     function checkSilence() {
       if (!mediaRecorder || mediaRecorder.state !== "recording") return;
 
-      analyser.getByteFrequencyData(dataArray);
-      let volume = 0;
+      analyser.getByteTimeDomainData(dataArray);
+      let sumSquares = 0;
       for (let i = 0; i < bufferLength; i++) {
-        volume += dataArray[i];
+        const amplitude = (dataArray[i] - 128) / 128;
+        sumSquares += amplitude * amplitude;
       }
-      volume /= bufferLength;
+      const volume = Math.sqrt(sumSquares / bufferLength) * 100;
+
+      // Debug: Log volume every 500ms to avoid flooding
+      if (!window._lastLogTime || Date.now() - window._lastLogTime > 500) {
+        console.log("Current Volume:", volume.toFixed(2));
+        window._lastLogTime = Date.now();
+      }
 
       if (volume > SILENCE_THRESHOLD) {
         lastSoundTime = Date.now();
       }
 
       if (Date.now() - lastSoundTime > SILENCE_DURATION) {
-        console.log("Silence detected, auto-stopping...");
+        console.log(
+          "Silence detected (Volume below threshold for " +
+            SILENCE_DURATION +
+            "ms), auto-stopping...",
+        );
         if (mediaRecorder.state === "recording") {
           micBtn.click();
         }
@@ -139,8 +150,6 @@ async function startRecording() {
 
       requestAnimationFrame(checkSilence);
     }
-
-    checkSilence();
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) audioChunks.push(event.data);
@@ -157,6 +166,7 @@ async function startRecording() {
     };
 
     mediaRecorder.start();
+    checkSilence();
   } catch (err) {
     console.error("Recording error:", err);
     statusText.textContent = "Mic error";
@@ -182,19 +192,20 @@ ipcRenderer.on("transcription-result", (_event, text) => {
   } else {
     statusText.textContent = "Didn't catch that";
     setTimeout(() => {
-        if (!isPlaying) statusText.textContent = "Ready to help";
+      if (!isPlaying) statusText.textContent = "Ready to help";
     }, 2000);
   }
 });
 
 // Listen for wake word from main
 ipcRenderer.on("wake-word", () => {
-    console.log("Wake word detected! Checking if we should trigger microphone...");
-    // Only trigger if not recording AND not speaking
-    if ((!mediaRecorder || mediaRecorder.state !== "recording") && !isPlaying) {
-        micBtn.click();
-    } else {
-        console.log("Wake word ignored: recording in progress or bot is speaking.");
-    }
+  console.log(
+    "Wake word detected! Checking if we should trigger microphone...",
+  );
+  // Only trigger if not recording AND not speaking
+  if ((!mediaRecorder || mediaRecorder.state !== "recording") && !isPlaying) {
+    micBtn.click();
+  } else {
+    console.log("Wake word ignored: recording in progress or bot is speaking.");
+  }
 });
-

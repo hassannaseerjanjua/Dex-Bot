@@ -24,7 +24,11 @@ def connect_ws():
 
 connect_ws()
 
-def callback(indata, frames, time, status):
+last_detection_time = 0
+DETECTION_DEBOUNCE = 3.0 # seconds
+
+def callback(indata, frames, time_info, status):
+    global last_detection_time
     if status:
         print(f"Error: {status}")
     
@@ -36,13 +40,16 @@ def callback(indata, frames, time, status):
 
     # Check for detections
     for key, score in prediction.items():
-        if score > 0.5:
-            print(f"🔥 Wake word detected: {key} (Score: {score:.2f})")
-            try:
-                ws.send(json.dumps({"event": "wake_word"}))
-            except Exception as e:
-                print(f"Failed to send event: {e}")
-                connect_ws()
+        if score > 0.6: # Increased score threshold slightly
+            current_time = time.time()
+            if current_time - last_detection_time > DETECTION_DEBOUNCE:
+                print(f"🔥 Wake word detected: {key} (Score: {score:.2f})")
+                try:
+                    ws.send(json.dumps({"event": "wake_word"}))
+                    last_detection_time = current_time
+                except Exception as e:
+                    print(f"Failed to send event: {e}")
+                    connect_ws()
 
 # Parameters for openWakeWord
 # - 16,000 Hz sample rate
