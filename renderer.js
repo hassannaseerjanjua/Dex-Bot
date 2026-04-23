@@ -102,11 +102,55 @@ async function startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
 
+    // ── Silence Detection (VAD) ───────────────────────────────
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    let lastSoundTime = Date.now();
+    const SILENCE_THRESHOLD = 20; // Volume threshold (0-255)
+    const SILENCE_DURATION = 2000; // Stop after 2 seconds of silence
+
+    function checkSilence() {
+      if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+
+      analyser.getByteFrequencyData(dataArray);
+      let volume = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        volume += dataArray[i];
+      }
+      volume /= bufferLength;
+
+      if (volume > SILENCE_THRESHOLD) {
+        lastSoundTime = Date.now();
+      }
+
+      if (Date.now() - lastSoundTime > SILENCE_DURATION) {
+        console.log("Silence detected, auto-stopping...");
+        if (mediaRecorder.state === "recording") {
+          micBtn.click();
+        }
+        return;
+      }
+
+      requestAnimationFrame(checkSilence);
+    }
+
+    checkSilence();
+
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) audioChunks.push(event.data);
     };
 
     mediaRecorder.onstop = async () => {
+      // Cleanup analysis nodes
+      source.disconnect();
+      analyser.disconnect();
+
       const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
       audioChunks = []; // Reset chunks for next recording
       sendToMain(audioBlob);
@@ -142,3 +186,15 @@ ipcRenderer.on("transcription-result", (_event, text) => {
     }, 2000);
   }
 });
+
+// Listen for wake word from main
+ipcRenderer.on("wake-word", () => {
+    console.log("Wake word detected! Checking if we should trigger microphone...");
+    // Only trigger if not recording AND not speaking
+    if ((!mediaRecorder || mediaRecorder.state !== "recording") && !isPlaying) {
+        micBtn.click();
+    } else {
+        console.log("Wake word ignored: recording in progress or bot is speaking.");
+    }
+});
+

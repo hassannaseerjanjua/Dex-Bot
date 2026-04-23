@@ -5,35 +5,27 @@ const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
 const path = require("path");
 const { OpenRouter } = require("@openrouter/sdk");
 
-// The client gets the API key from the environment variable `GEMINI_API_KEY`.
 const ai = new OpenRouter({ apiKey: process.env.OPEN_ROUTER_API_KEY });
 
-// ── ElevenLabs client ─────────────────────────────────────────
 const elevenLabs = new ElevenLabsClient({
   apiKey: process.env.ELEVEN_LABS_KEY,
 });
 
-const VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // Rachel (default)
+const VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 
-/**
- * Convert text to speech via ElevenLabs and send the raw audio
- * buffer to the renderer process via IPC so it can be played back.
- */
 async function speakWithElevenLabs(win, text) {
   try {
     const audioStream = await elevenLabs.textToSpeech.convert(VOICE_ID, {
       text,
-      modelId: "eleven_turbo_v2_5", // Much faster for real-time
+      modelId: "eleven_turbo_v2_5",
     });
 
-    // Collect stream chunks into a single Buffer
     const chunks = [];
     if (audioStream[Symbol.asyncIterator]) {
       for await (const chunk of audioStream) {
         chunks.push(chunk);
       }
     } else if (audioStream.getReader) {
-      // Handle Web ReadableStream
       const reader = audioStream.getReader();
       while (true) {
         const { done, value } = await reader.read();
@@ -45,7 +37,6 @@ async function speakWithElevenLabs(win, text) {
     }
     const audioBuffer = Buffer.concat(chunks);
 
-    // Send raw MP3 bytes to renderer
     win.webContents.send("tts-audio", audioBuffer);
     win.webContents.openDevTools();
   } catch (err) {
@@ -53,27 +44,41 @@ async function speakWithElevenLabs(win, text) {
   }
 }
 
-// ── WebSocket server ──────────────────────────────────────────
 let mainWindow = null;
 
 function startWebSocketServer() {
   const wss = new WebSocket.Server({ port: 3000 });
 
   wss.on("connection", (ws) => {
-    console.log("Client connected");
+    console.log("New connection established");
 
     ws.on("message", async (message) => {
-      const text = message.toString();
+      const msgStr = message.toString();
+      
+      // Try to parse as JSON for wake word events
+      try {
+        const data = JSON.parse(msgStr);
+        if (data.event === "wake_word") {
+          console.log("🔥 Wake word received from Python");
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("wake-word");
+          }
+          return;
+        }
+      } catch (e) {
+        // Not JSON, continue to treat as plain text if it's from the renderer
+      }
+
+      console.log("Processing message as chat prompt:", msgStr);
       const prompt = `
 You are a desktop assistant.
 - Be short
 - Help with tasks
 - Speak like a human
 - Your name is dex
-User: ${text}
+User: ${msgStr}
 `;
       try {
-        // Use standard completions.create for best streaming support
         const stream = await ai.chat.send({
           chatRequest: {
             model: "openai/gpt-4o-mini",
@@ -90,10 +95,8 @@ User: ${text}
 
           sentenceBuffer += chunkText;
 
-          // Stream the text chunk to the UI immediately
           ws.send(chunkText);
 
-          // If we find a sentence ending, kick off TTS for that sentence
           if (
             /[.!?\n]/.test(sentenceBuffer) &&
             sentenceBuffer.trim().length > 15
@@ -101,11 +104,10 @@ User: ${text}
             if (mainWindow) {
               speakWithElevenLabs(mainWindow, sentenceBuffer.trim());
             }
-            sentenceBuffer = ""; // Reset buffer for next sentence
+            sentenceBuffer = "";
           }
         }
 
-        // Speak any remaining text in the buffer
         if (sentenceBuffer.trim().length > 0 && mainWindow) {
           speakWithElevenLabs(mainWindow, sentenceBuffer.trim());
         }
@@ -114,7 +116,7 @@ User: ${text}
       }
     });
 
-    ws.on("close", () => console.log("Client disconnected"));
+    ws.on("close", () => console.log("Connection closed"));
   });
 
   console.log("WebSocket server running on ws://localhost:3000");
@@ -150,7 +152,6 @@ const FormData = require("form-data");
 
 ipcMain.on("audio-data", async (event, data) => {
   try {
-    // Ensure data is a proper Node.js Buffer
     const buffer = Buffer.from(data);
 
     const formData = new FormData();
@@ -158,7 +159,7 @@ ipcMain.on("audio-data", async (event, data) => {
       filename: "audio.webm",
       contentType: "audio/webm",
     });
-    formData.append("model_id", "scribe_v1"); // scribe_v1 is the correct ID
+    formData.append("model_id", "scribe_v1");
 
     const response = await axios.post(
       "https://api.elevenlabs.io/v1/speech-to-text",
@@ -173,7 +174,6 @@ ipcMain.on("audio-data", async (event, data) => {
 
     console.log("Transcription:", response.data);
 
-    // Send transcription back to renderer
     const text = response.data.text || response.data.transcription;
     if (text && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("transcription-result", text);
@@ -201,3 +201,4 @@ app.whenReady().then(() => {
   createWindow();
   startWebSocketServer();
 });
+
