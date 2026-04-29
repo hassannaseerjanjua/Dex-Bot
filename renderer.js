@@ -1,14 +1,5 @@
 const { ipcRenderer } = require("electron");
 
-// ── Close button ──────────────────────────────────────────────
-document.getElementById("closeBtn").addEventListener("click", () => {
-  ipcRenderer.send("app-close");
-});
-
-// ── Elements ──────────────────────────────────────────────────
-const micBtn = document.getElementById("micBtn");
-const statusText = document.getElementById("statusText");
-
 // ── App State ─────────────────────────────────────────────────
 let appState = 'idle'; // 'idle', 'listening', 'speaking', 'processing'
 let currentMicVolume = 0;
@@ -19,12 +10,10 @@ const socket = new WebSocket("ws://localhost:3000");
 
 socket.onopen = () => {
   console.log("Connected to WebSocket server");
-  statusText.textContent = "Ready to help";
   appState = 'idle';
 };
 socket.onerror = (err) => {
   console.error("WebSocket error:", err);
-  statusText.textContent = "Connection error";
   appState = 'idle';
 };
 
@@ -32,26 +21,8 @@ socket.onerror = (err) => {
 function sendMessage(text) {
   if (!text || socket.readyState !== WebSocket.OPEN) return;
   socket.send(text);
-  statusText.textContent = "Thinking...";
   appState = 'processing';
 }
-
-// ── Microphone logic ──────────────────────────────────────────
-micBtn.addEventListener("click", () => {
-  if (mediaRecorder && mediaRecorder.state === "recording") {
-    stopRecording();
-    micBtn.classList.remove("recording");
-    micBtn.textContent = "🎤";
-    statusText.textContent = "Processing...";
-    appState = 'processing';
-  } else {
-    startRecording();
-    micBtn.classList.add("recording");
-    micBtn.textContent = "🔴";
-    statusText.textContent = "Listening...";
-    appState = 'listening';
-  }
-});
 
 // ── ElevenLabs TTS playback ───────────────────────────────────
 const audioCtx = new AudioContext();
@@ -81,7 +52,6 @@ function updateBotVolume() {
 async function playNextInQueue() {
   if (audioQueue.length === 0) {
     if (!isPlaying) {
-      statusText.textContent = "Ready to help";
       appState = 'idle';
     }
     return;
@@ -91,7 +61,6 @@ async function playNextInQueue() {
 
   isPlaying = true;
   appState = 'speaking';
-  statusText.textContent = "Speaking...";
 
   const buffer = audioQueue.shift();
 
@@ -128,6 +97,7 @@ let audioChunks = [];
 
 async function startRecording() {
   try {
+    appState = 'listening';
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
 
@@ -165,7 +135,10 @@ async function startRecording() {
 
       if (Date.now() - lastSoundTime > SILENCE_DURATION) {
         console.log("Silence detected, auto-stopping...");
-        if (mediaRecorder.state === "recording") micBtn.click();
+        if (mediaRecorder.state === "recording") {
+            stopRecording();
+            appState = 'processing';
+        }
         return;
       }
 
@@ -189,7 +162,6 @@ async function startRecording() {
     checkSilence();
   } catch (err) {
     console.error("Recording error:", err);
-    statusText.textContent = "Mic error";
     appState = 'idle';
   }
 }
@@ -210,11 +182,7 @@ ipcRenderer.on("transcription-result", (_event, text) => {
     console.log("Transcribed:", text);
     sendMessage(text);
   } else {
-    statusText.textContent = "Didn't catch that";
     appState = 'idle';
-    setTimeout(() => {
-      if (!isPlaying) statusText.textContent = "Ready to help";
-    }, 2000);
   }
 });
 
@@ -222,9 +190,20 @@ ipcRenderer.on("transcription-result", (_event, text) => {
 ipcRenderer.on("wake-word", () => {
   console.log("Wake word detected! Checking if we should trigger microphone...");
   if ((!mediaRecorder || mediaRecorder.state !== "recording") && !isPlaying) {
-    micBtn.click();
+    startRecording();
   } else {
     console.log("Wake word ignored: recording in progress or bot is speaking.");
+  }
+});
+
+// Orb clicking as manual mic fallback
+const orbCanvas = document.getElementById('orbCanvas');
+orbCanvas.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    stopRecording();
+    appState = 'processing';
+  } else {
+    startRecording();
   }
 });
 

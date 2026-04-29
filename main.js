@@ -215,8 +215,8 @@ function startWakeWordProcess() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 320,
-    height: 540,
+    width: 280,
+    height: 280,
     icon: path.join(__dirname, "assets", "dex.ico"),
     frame: false,
     show: false,
