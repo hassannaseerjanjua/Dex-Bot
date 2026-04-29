@@ -15,11 +15,11 @@ def connect_ws():
     global ws
     while True:
         try:
-            ws = websocket.create_connection("ws://localhost:3000")
-            print("✅ Connected to Electron WebSocket")
+            ws = websocket.create_connection("ws://127.0.0.1:3000")
+            print("Connected to Electron WebSocket")
             break
-        except Exception as e:
-            print(f"Waiting for Electron server... (make sure the app is running)")
+        except Exception:
+            print("Waiting for Electron server... (make sure the app is running)")
             time.sleep(2)
 
 connect_ws()
@@ -43,7 +43,7 @@ def callback(indata, frames, time_info, status):
         if score > 0.6: # Increased score threshold slightly
             current_time = time.time()
             if current_time - last_detection_time > DETECTION_DEBOUNCE:
-                print(f"🔥 Wake word detected: {key} (Score: {score:.2f})")
+                print(f"Wake word detected: {key} (Score: {score:.2f})")
                 try:
                     ws.send(json.dumps({"event": "wake_word"}))
                     last_detection_time = current_time
